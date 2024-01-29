@@ -1,5 +1,5 @@
-# Version: 1.0
-# Import necessary libraries
+import concurrent.futures
+from requests import Session
 import random
 import requests
 import os
@@ -12,7 +12,7 @@ print("""
  | |__) |__| |_ __ ___     | |  _ __ ___   __ _ _   _ _ __    | |  _ __ ___   __ _  | |  __  ___ _ __  
  |  _  // _` | '_ ` _ \    | | | '_ ` _ \ / _` | | | | '__|   | | | '_ ` _ \ / _` | | | |_ |/ _ \ '_ \ 
  | | \ \ (_| | | | | | |  _| |_| | | | | | (_| | |_| | |     _| |_| | | | | | (_| | | |__| |  __/ | | |
- |_|  \_\__,_|_| |_| |_| |_____|_| |_| |_|\__, |\__,_|_|    |_____|_| |_| |_|\__, |  \_____|\___|_| |_|by steever38
+ |_|  \_\__,_|_| |_| |_| |_____|_| |_| |_|\__, |\__,_|_|    |_____|_| |_| |_|\__, |  \_____|\___|_| |_|
                                            __/ |                              __/ |                    
                                           |___/                              |___/                     
 """)
@@ -44,41 +44,38 @@ while webhook == 'yes':
 url_characters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 
                   'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 
                   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-# Function to generate a random Imgur image URL
-def generate_random_url():
-    id = ''.join(random.choice(url_characters) for _ in range(5))
-    image_url=f'https://i.imgur.com/{id}.jpeg'
-    return id, image_url
 
-downloaded_images = 0
+# Usage of sessions for HTTP requests
+session = Session()
 
-# Loop until we've downloaded the desired number of images
-while downloaded_images < image_number:
-    id, image_url = generate_random_url()
-    # Send a HEAD request to get the headers of the image
-    response = requests.head(image_url)
-    content_length = int(response.headers.get("content-length", 0))
-    now = datetime.datetime.now().strftime("%H:%M:%S")
+# Using multiprocessing to download images in parallel
+with concurrent.futures.ThreadPoolExecutor() as executor:
+    downloaded_images = 0
 
-    # Check if the size is not 503 bytes (which means the link is dead)
-    if content_length != 503:
-        if content_length > 0:
-            # Send a GET request to download the image
-            response = requests.get(image_url)
+    # Function to generate random url
+    def generate_random_url():
+        id = ''.join(random.choices(url_characters, k=5))
+        return f'https://i.imgur.com/{id}.jpeg'
+
+    # Function to download image
+    def download_image(image_url):
+        response = session.head(image_url)
+        content_length = int(response.headers.get("content-length", 0))
+
+        if content_length > 0 and content_length != 503:
+            response = session.get(image_url)
             if response.status_code == 200:
-                # Save the image to a file
-                with open(f'images/{id}t.jpeg', 'wb') as file:
+                id = image_url.split("/")[-1].split(".")[0]
+                with open(os.path.join('images', f'{id}t.jpeg'), 'wb') as file:
                     file.write(response.content)
-                # Print a success message with the current time and image number
-                print(f'[{now}] Image {downloaded_images + 1} ({id}) downloaded successfully.')
-                # Increment the count of downloaded images
-                downloaded_images += 1
-                # If the user chose to send images to a Discord webhook, send a POST request to the webhook URL with the image URL
-                if webhook == 'yes':
-                    response = requests.post(webhook_url, json={'content': image_url})
-            else:
-                # If the GET request was not successful, print an error message with the image number and response status code
-                print(f'Unable to download image {downloaded_images + 1}. Response status: {response.status_code}')
+                if webhook=="yes":
+                    requests.post(webhook_url, json={"content": image_url})
+                print(f'[{datetime.datetime.now().strftime("%H:%M:%S")}] Image {id} downloaded successfully.')
+                return image_url
+
+    # Using concurrent.futures to download images in parallel
+    image_urls = [generate_random_url() for _ in range(image_number)]
+    downloaded_images += len(list(executor.map(download_image, image_urls)))
 
 # After all images have been downloaded, print the total number of downloaded images
 print(f'Total number of downloaded images: {downloaded_images}')

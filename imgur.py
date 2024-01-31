@@ -4,37 +4,40 @@ import random
 import requests
 import os
 import datetime
-
+from pystyle import Colors, Colorate, Write
 # Ascii art title
-print("""
+title = """
   _____     _             _____                              _____                    _____            
- |  __ \   | |           |_   _|                            |_   _|                  / ____|           
+ |  __ \\   | |           |_   _|                            |_   _|                  / ____|           
  | |__) |__| |_ __ ___     | |  _ __ ___   __ _ _   _ _ __    | |  _ __ ___   __ _  | |  __  ___ _ __  
- |  _  // _` | '_ ` _ \    | | | '_ ` _ \ / _` | | | | '__|   | | | '_ ` _ \ / _` | | | |_ |/ _ \ '_ \ 
- | | \ \ (_| | | | | | |  _| |_| | | | | | (_| | |_| | |     _| |_| | | | | | (_| | | |__| |  __/ | | |
- |_|  \_\__,_|_| |_| |_| |_____|_| |_| |_|\__, |\__,_|_|    |_____|_| |_| |_|\__, |  \_____|\___|_| |_|
+ |  _  // _` | '_ ` _ \\    | | | '_ ` _ \\ / _` | | | | '__|   | | | '_ ` _ \\ / _` | | | |_ |/ _ \\ '_ \\
+ | | \\ \\ (_| | | | | | |  _| |_| | | | | | (_| | |_| | |     _| |_| | | | | | (_| | | |__| |  __/ | | |
+ |_|  \\_\\__,_|_| |_| |_| |_____|_| |_| |_|\\__, |\\__,_|_|    |_____|_| |_| |_|\\__, |  \\_____|\\___|_| |_|
                                            __/ |                              __/ |                    
                                           |___/                              |___/                     
-""")
-
+"""
+print(Colorate.Horizontal(Colors.green_to_yellow, title))
+os.system("title " + "Random Imgur Image Generator")
 # Check if the 'images' directory exists, if not, create it
 if not os.path.exists("images"):
     os.mkdir("images")
-
-print("Warning: potentially NSFW content may be present \n")
+print()
+Write.Print("program made by steever38 (github.com/steever38) \n", Colors.red_to_yellow, interval=0.02)
+print()
+Write.Print("Warning: potentially NSFW content may be present \n", Colors.red, interval=0.008)
 # Ask the user how many images they want to download
-image_number = int(input("How many images do you want to download: "))
+image_number = int(Write.Input("How many images do you want to download -> ", Colors.reset, interval=0.008))
 
 # Ask the user if they want to send images to a Discord webhook
-webhook = input("Send images to a Discord webhook? [yes/no]: ")
+webhook = Write.Input("Send images to a Discord webhook, [yes/no] -> ", Colors.reset, interval=0.008)
 while webhook == 'yes':
     if webhook == 'yes':
         # Get the URL of the Discord webhook from the user
-        webhook_url = input("URL of your Discord webhook: ")
+        webhook_url = Write.Input("URL of your Discord webhook -> ", Colors.reset, interval=0.008)
         # Send a HEAD request to the webhook URL to check if it's valid
         response = requests.head(webhook_url)
         if response.status_code != 200:
-            print(f"Webhook error, error code: {response.status_code}")
+            Write.Print(f"Webhook error, error code: {response.status_code}", Colors.red, interval=0.001)
             # Ask the user if they want to retry entering the webhook URL
             webhook = input("Do you want to retry the webhook URL? yes/no: ")
         else:
@@ -59,6 +62,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
 
     # Function to download image
     def download_image(image_url):
+        global downloaded_images_count
         response = session.head(image_url)
         content_length = int(response.headers.get("content-length", 0))
 
@@ -70,12 +74,31 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                     file.write(response.content)
                 if webhook=="yes":
                     requests.post(webhook_url, json={"content": image_url})
-                print(f'[{datetime.datetime.now().strftime("%H:%M:%S")}] Image {id} downloaded successfully.')
+                downloaded_images_count += 1
+                print(f'{downloaded_images_count} - [{datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]}] Image {id} downloaded successfully.')
                 return image_url
+        else: 
+            new_url = generate_random_url()
+            download_image(new_url)
+
 
     # Using concurrent.futures to download images in parallel
+    downloaded_images_count = 0
     image_urls = [generate_random_url() for _ in range(image_number)]
+    Write.Print(f"\n{image_number} random url generated", Colors.green, interval=0.02)
+    print("\nReady to download images")
+    # Start timer
+    start_time = datetime.datetime.now()
     downloaded_images += len(list(executor.map(download_image, image_urls)))
+    # End timer
+    end_time = datetime.datetime.now()
+    duration = end_time - start_time
 
-# After all images have been downloaded, print the total number of downloaded images
-print(f'Total number of downloaded images: {downloaded_images}')
+seconds= duration.seconds
+microseconds = duration.microseconds
+ok = float(str(seconds)+"."+str(microseconds))
+average_download_time = ok / downloaded_images
+# After all images have been downloaded, print the total number of downloaded images, the total time to download and the average time per image
+Write.Print(f'Total number of downloaded images: {downloaded_images}', Colors.green, interval=0.001)
+Write.Print(f'\nTotal time to download: {duration}', Colors.yellow, interval=0.001)
+Write.Print(f'\nAverage download time per image: {average_download_time:.4f} seconds', Colors.orange, interval=0.001)
